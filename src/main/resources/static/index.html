@@ -1,0 +1,272 @@
+<!DOCTYPE HTML>
+<html>
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="styles.css">
+    <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.4.1/css/bootstrap.min.css">
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.7.1/jquery.min.js"></script>
+    <script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.4.1/js/bootstrap.min.js"></script>
+</head>
+<body>
+<script>
+
+    function loadProducts() {
+        var innerElement = document.getElementById("product-toggle").innerHTML
+        if(innerElement === '+'){
+            document.getElementById("product-toggle").innerHTML = '-'
+        }else {
+        document.getElementById("product-toggle").innerHTML = '+'
+        }
+
+        $.ajax({
+            url:'http://localhost:8080/api/product/all',
+            type: "GET",
+            success: function (data) {
+              var innerHTML = '<table> <tr><th>Id</th><th>Name</th><th>Price</th><th>Availability</th></tr>'
+              for (let i = 0; i < data.length; i++) {
+                 var product = data[i];
+                 innerHTML = innerHTML + '<tr><td>'+ product.id+'</td><td>'+product.name+'</td><td>'+product.price+
+                 '</td><td>'+product.quantity+'</td></tr>';
+               }
+              innerHTML = innerHTML + '</table>'
+              document.getElementById("product-list").innerHTML = innerHTML;
+            },
+            error: function (error) {
+                console.log(`Error ${error}`);
+            }
+        });
+    }
+
+    function getOrders() {
+        document.getElementById("itemList").innerHTML = '';
+        document.getElementById("cartPrice").innerHTML = '';
+        var innerHTML = '';
+        $.ajax({
+            url:'http://localhost:8080/api/order/all',
+            type: "GET",
+            success: function (data) {
+                document.getElementById("cart").innerHTML = '';
+                document.getElementById("itemTable").innerHTML = '';
+                document.getElementById("itemList").innerHTML = '';
+                document.getElementById("addItem").innerHTML = '';
+                document.getElementById("cartPrice").innerHTML = '';
+                document.getElementById("orderDetails").innerHTML = '';
+                document.getElementById("report-data").innerHTML = '';
+                var innerHTML = '';
+                for (let i = 0; i < data.length; i++) {
+                 var order = data[i];
+                 innerHTML = innerHTML + ' <div><table><tr><td>Order Id: '+order.id+'</td><td>Price: '+order.price+'</td><td>Place At: '+order.createdAt+'</td></tr></table></div>';
+                 innerHTML = innerHTML + ' <div><table><tr><th>Name</th><th>Quantity</th></tr>';
+                 var items = order.items;
+                 for (let i = 0; i < items.length; i++) {
+                    var item = items[i];
+                    innerHTML = innerHTML + '<tr><td>'+item.name+'</td><td>'+item.quantity+'</td></tr>';
+                 }
+               }
+                document.getElementById("order").innerHTML = innerHTML;
+            },
+            error: function (e) {
+               console.error(e);
+                alert(e.responseText);
+            }
+        });
+    }
+
+    function getCart() {
+        document.getElementById("itemList").innerHTML = '';
+        document.getElementById("cartPrice").innerHTML = '';
+        $.ajax({
+            url:'http://localhost:8080/api/cart/new',
+            type: "GET",
+            success: function (data) {
+             document.getElementById("cart").innerHTML = 'Your Cart id is '+ data;
+              document.getElementById("itemTable").innerHTML = '<table><tr><th>Product</th><th>Quantity</th></tr>';
+              document.getElementById("addItem").innerHTML = '<tr><td><input id="productId" type="number" placeholder="Product Id"/></td><td><input id="productQ" type="number" placeholder="Quantity"/></td><button id="add-items" class="button" onclick="addItems('+data+')">add Items</button></tr></table>';
+              document.getElementById("order").innerHTML = '';
+              document.getElementById("orderDetails").innerHTML = '';
+              document.getElementById("report-data").innerHTML = '';
+            },
+            error: function (error) {
+               console.error(e);
+                alert(e.responseText);
+            }
+        });
+    }
+
+    function addItems(id) {
+
+        var search = {}
+        search["productId"] = $("#productId").val();
+        search["quantity"] = $("#productQ").val();
+
+        $.ajax({
+            type: "POST",
+            contentType: "application/json",
+            url: "/api/cart/"+id+"/addItem",
+            data: JSON.stringify(search),
+            dataType: 'json',
+            cache: false,
+            timeout: 600000,
+            success: function (data) {
+            var innerHTML = '<table>';
+            var itms = data.items;
+            for (let i = 0; i < itms.length; i++) {
+                 var item = itms[i];
+                 innerHTML = innerHTML + '<tr><td>'+ item.name+'</td><td>'+item.quantity+'</td></tr>';
+               }
+               document.getElementById("itemList").innerHTML = innerHTML + '</table>';
+               document.getElementById("cart").innerHTML = 'Total cart price is: '+data.price;
+               document.getElementById("order").innerHTML = '<tr><button id="create-order" class="button" onclick="createOrder('+data.id+')">Order</button></tr>';
+
+            },
+            error: function (e) {
+                console.error(e);
+                alert(e.responseText);
+            }
+        });
+    }
+
+     function createOrder(id) {
+        document.getElementById("order").innerHTML = '<table><tr><td><input id="name" type="text" placeholder="Enter your name"/></td><td><input id="email" type="text" placeholder="Your Email"/></td><td><button id="place-order" class="button" onclick="placeOrder('+id+')">Place Order</button></td></tr></table>'
+    }
+
+     function placeOrder(id) {
+
+        var search = {}
+        search["name"] = $("#name").val();
+        search["emailAddress"] = $("#email").val();
+        search["cartId"] = id;
+
+        $.ajax({
+            type: "POST",
+            contentType: "application/json",
+            url: "/api/order",
+            data: JSON.stringify(search),
+            dataType: 'json',
+            cache: false,
+            timeout: 600000,
+            success: function (data) {
+                document.getElementById("order").innerHTML = '<tr> Thank you ordering. Your order id is: '+data+'</tr><table>';
+                document.getElementById("cart").innerHTML = '';
+                document.getElementById("itemTable").innerHTML = '';
+                document.getElementById("itemList").innerHTML = '';
+                document.getElementById("addItem").innerHTML = '';
+                document.getElementById("cartPrice").innerHTML = '';
+                document.getElementById("report-data").innerHTML = '';
+                populateOrderDetails(data);
+            },
+            error: function (e) {
+                console.error(e);
+                alert(e.responseText);
+            }
+        });
+    }
+
+    function populateOrderDetails(id) {
+        $.ajax({
+            url:'http://localhost:8080/api/order/'+id,
+            type: "GET",
+            success: function (data) {
+              var innerHTML = '<table> <tr><th>Name</th><th>Price</th></tr>'
+              var items = data.items;
+              for (let i = 0; i < items.length; i++) {
+                 var product = items[i];
+                 innerHTML = innerHTML + '<tr><td>'+product.name+'</td><td>'+product.quantity+'</td></tr>';
+               }
+              innerHTML = innerHTML + '</table>'
+              innerHTML = innerHTML + '<tr>Total Order Price is: '+data.price+'</tr>';
+              document.getElementById("orderDetails").innerHTML = innerHTML;
+            },
+            error: function (error) {
+                console.log(`Error ${error}`);
+            }
+        });
+    }
+    function leastSellingProduct() {
+        $.ajax({
+            url:'http://localhost:8080/api/report/leastSellingProduct',
+            type: "GET",
+            success: function (data) {
+              var innerHTML = '<table> <tr><th>Name</th><th>Price</th><th>Sold Quantity</th><th>Available Quantity</th></tr>'
+              innerHTML = innerHTML + '<tr><td>'+ data.name+'</td><td>'+data.price+'</td><td>'+data.soldQuantity+
+                 '</td><td>'+data.remainingQuantity+'</td></tr></table>';
+              document.getElementById("report-data").innerHTML = innerHTML;
+            },
+            error: function (error) {
+                console.log(`Error ${error}`);
+                alert(e.responseText);
+            }
+        });
+    }
+    function topSellingProduct() {
+        $.ajax({
+            url:'http://localhost:8080/api/report/top5SellingProduct',
+            type: "GET",
+            success: function (data) {
+              var innerHTML = '<table> <tr><th>Name</th><th>Price</th><th>Sold Quantity</th><th>Available Quantity</th></tr>'
+              for (let i = 0; i < data.length; i++) {
+                 var product = data[i];
+                 innerHTML = innerHTML + '<tr><td>'+ product.name+'</td><td>'+product.price+'</td><td>'+product.soldQuantity+
+                 '</td><td>'+product.remainingQuantity+'</td></tr>';
+               }
+              innerHTML = innerHTML + '</table>'
+              document.getElementById("report-data").innerHTML = innerHTML;
+            },
+            error: function (error) {
+                console.log(`Error ${error}`);
+                alert(e.responseText);
+            }
+        });
+    }
+
+    function dailySalesReport() {
+        document.getElementById("report-data").innerHTML = '<tr><td><input id="fromDate" type="date" placeholder="From"/></td><td><input id="toDate" type="date" placeholder="to"/></td><button id="fetch-daily-salesReport" class="button" onclick="fetchDailySalesReport()">Fetch Report</button></tr></table>';
+    }
+
+    function fetchDailySalesReport() {
+
+        $.ajax({
+            url:'http://localhost:8080/api/report/dailySalesReport?startDate='+$("#fromDate").val()+'&endDate='+$("#toDate").val(),
+            type: "GET",
+            success: function (data) {
+              var innerHTML = '<table><tr><th>Name</th><th>Date</th><th>Amount</th></tr>'
+              for (let i = 0; i < data.length; i++) {
+                 var report = data[i];
+                 innerHTML = innerHTML + '<tr><td>'+ report.name+'</td><td>'+ report.date+'</td><td>'+report.saleAmount+'</td></tr>';
+               }
+              innerHTML = innerHTML + '</table>'
+              document.getElementById("report-data").innerHTML = innerHTML;
+            },
+            error: function (error) {
+                console.log(`Error ${error}`);
+                alert(error.responseText);
+            }
+        });
+    }
+</script>
+
+<h2>Your Shopping Portal</h2>
+<div class="container">
+    <div><a id="product-toggle" href="#coll" class="btn btn-info" data-toggle="collapse" onclick="loadProducts()">+</a>See Available Products<div>
+    <div id="coll" class="collapse">
+        <div id="product-list"></div>
+    </div>
+    <div><button id="getCart" onclick="getCart()" class="button" >Get Shopping Cart</button> <button id="getOrders" class="button" onclick="getOrders()">See Orders</button></div>
+    <div id="cart"></div>
+    <div id ="itemTable"></div>
+    <div id="itemList"></div>
+    <div id ="addItem"></div>
+    <div id ="cartPrice"></div>
+    <div id = "order"></div>
+    <div id = "orderDetails"></div>
+    <div><button onclick="topSellingProduct()">Top 5 selling products of today</button></div>
+    </div>
+    <div><button onclick="leastSellingProduct()">Least selling products of today</button></div>
+    <div><button onclick="dailySalesReport()">Daily Sales Report</button></div>
+    <div id="report-data"></div>
+</div>
+</body>
+</html>
